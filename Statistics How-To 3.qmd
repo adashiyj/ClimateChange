@@ -1,0 +1,134 @@
+---
+title: "Statistics How-To Experimentation"
+author: "Luke Fischer"
+format: html
+editor: visual
+---
+
+## Start- Original Dataset (messy, sorry 'bout that)
+
+```{r}
+# If there are some packages you do not have: install.packages("packagename")
+# then load the package using library(packagename)
+
+library(tidyverse)
+library(haven)
+library(psych)
+
+data <- read_sav('/Users/lukefischer/Desktop/R Projects/Model Statistical Modelling/data/spss.sav') # try it out with your own dataset 
+
+data <- tibble(data) # i have no recollection of doing this.  perhaps not necessary anymore
+
+data <- data |> 
+  filter(Finished == 1) # blah blah
+
+data <- data |> 
+  mutate(FearNofear = if_else(Condition %in% c(1,2), 1, 0), .before = Duration__in_seconds_) |>
+  mutate(AbstractConcrete = if_else(Condition %in% c(1,3), 1, 0), .before = Duration__in_seconds_) 
+
+
+# here I made a fake three fear appeal level variable called custom condition, and also two dummy coded variables (for moderate and strong fear appeal)
+data <- data |> 
+  mutate(PEI = rowSums(across(Intention_1:Intention_4)), .before = FearNofear) |> 
+  mutate(custom_condition = ntile(row_number(), 3)) |> 
+  mutate(h_fear = if_else(custom_condition == 3, 1, 0), l_fear = if_else(custom_condition == 2, 1, 0)) 
+
+
+
+```
+
+## Moderated Mediation Analysis
+
+I used this website (unprotected, just so you know: <https://ademos.people.uic.edu/Chapter15.html>) and some help from chatgpt). Check out the website though, they have a bunch of other statistic specifications you can add into the model, which may be useful. Also check it out for output interpretation. But note, they have a continuous moderator and a continuous predictor, and not categorical like us.
+
+```{r}
+library(lavaan)
+
+model <- '
+  # Mediation paths
+  Self_Ef ~ a1*l_fear + a2*h_fear + a3*AbstractConcrete + a4*l_fear:AbstractConcrete + a5*h_fear:AbstractConcrete
+  PEI ~ b1*Self_Ef + c1*l_fear + c2*h_fear + c3*AbstractConcrete + c4*l_fear:AbstractConcrete + c5*h_fear:AbstractConcrete
+
+  # Indirect effects 
+  ind_l_fear := a1 * b1
+  ind_h_fear := a2 * b1
+
+  # Index of moderated mediation
+  index_l := a4 * b1
+  index_h := a5 * b1
+  
+  # Difference in moderated mediation effects- comparing their strength
+  index_difference := index_h - index_l
+  
+'
+
+# Estimating our model 
+moderated_mediation <- sem(model = model,
+                   data = data,
+                   se = "bootstrap",
+                   bootstrap = 500) # at least - but bootstrapping will take a minute to load
+
+#summary stats
+summary(moderated_mediation,
+        fit.measures = FALSE,
+        standardize = TRUE, # standardize coefficient estimates
+        rsquare = TRUE)
+
+## getting boot strapped confidence intervals for our standardized coefficients
+parameterEstimates(moderated_mediation,
+                   boot.ci.type = "bca.simple",
+                   level = .95, ci = TRUE,
+                   standardized = FALSE)
+
+## Tip: ChatGPT can help a lot with interpretation and stuff, this is very advanced modeling so use it, also when you have issues assigning coefficients to 
+```
+
+## Simple Effects Analysis two-way ANOVA, and planned treatment contrasts for one-way
+
+```{r}
+library(car)
+library(emmeans)
+
+
+## running a type 3 anova (two way)
+data <- data |> 
+  mutate(custom_condition = as.factor(custom_condition))
+
+
+model2 <- lm(PEI ~ custom_condition*AbstractConcrete, data = data)
+
+Anova(model2, type = "3")
+
+## simple effects- comparung custom condition levels at each level of recommendation type and adjust using Benjaminin & Hochberg
+
+emmeans(model2, pairwise ~ custom_condition|AbstractConcrete, adjust = "fdr")
+
+
+
+## Planned treatment contrasts for one-way anova
+
+contrasts(data$custom_condition) <- contr.treatment(3, base = 2) # set the reference category with base, assign contrasts before ANOVA
+
+model3<- aov(PEI ~ custom_condition, data)
+
+summary.lm(model3) # this function will give you the output where you can see how groups compare to the reference 
+```
+
+## Assumption Checks
+
+```{r}
+library(lmtest) # for bptest
+
+## Heteroscedasticity in Multiple regression (Breusch-Pagan test)
+bptest(model2)
+
+
+## Heteroscedasticity in ANOVA (Levene's test)
+leveneTest(PEI ~ interaction(custom_condition, AbstractConcrete), data = data)
+
+## Normality of residuals
+
+shapiro.test(residuals(model2)) ## whoopsies
+
+
+```
