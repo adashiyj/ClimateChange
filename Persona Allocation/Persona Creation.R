@@ -5,41 +5,41 @@ set.seed(5)
 # Gender ----
 gender <- c("male", "female")
 
-gender_frequency <- c(66, 68)
+gender_frequency <- c(400, 404)
 
 gender_vector <- rep(gender, times = gender_frequency)
 
-gender_vector <- sample(gender_vector, size = 134)
+gender_vector <- sample(gender_vector, size = 804)
 
 
 # Education ----
 education <- c("primary", "senior", "high")
 
-education_frequency <- c(35, 50, 49)
+education_frequency <- c(211, 299, 294)
 
 education_vector <- rep(education, times = education_frequency)
 
-education_vector <- sample(education_vector, size = 134)
+education_vector <- sample(education_vector, size = 804)
 
 # Age ----
 
-age <- c("<20", "20-40", "40-65", "65-80", "80+")
+age <- c("<20", "21-40", "41-65", "66-80", "81+")
 
-age_frequency <- c(29, 34, 44, 21, 6)
+age_frequency <- c(169, 209, 265, 121, 40)
 
 age_vector <- rep(age, times = age_frequency)
 
-age_vector <- sample(age_vector, size = 134)
+age_vector <- sample(age_vector, size = 804)
 
 # Ethnic background ----
 
 ethnic <- c("INBPN", "INOPA", "INBPA", "ONBPA", "ONOPA", "ONBPN")
 
-ethnic_frequency <- c(100, 9, 6, 16, 1, 2)
+ethnic_frequency <- c(600, 51, 41, 101, 5, 6)
 
 ethnic_vector <- rep(ethnic, times = ethnic_frequency)
 
-ethnic_vector <- sample(ethnic_vector, size = 134)
+ethnic_vector <- sample(ethnic_vector, size = 804)
 
 
 # Table for coniditions ----
@@ -59,4 +59,3 @@ personas |>
 
 write_csv(personas, "personas.csv")
 
-?write_csv
